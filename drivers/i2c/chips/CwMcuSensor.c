@@ -932,6 +932,8 @@ static int get_proximity(struct device *dev, struct device_attribute *attr, char
 #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_WAKE_GESTURES
 extern int cam_switch;
 
+static int proximity_flag = 0;
+
 static void sensor_enable(int sensors_id, int enabled)
 {
 	u8 i;
@@ -964,7 +966,7 @@ static void sensor_enable(int sensors_id, int enabled)
 	i = sensors_id /8;
 	data = (u8)(mcu_data->enabled_list>>(i*8));
 
-	D("%s: i= %d data = %d CWSTM32_ENABLE_REG= %d \n", __func__, i, data, CWSTM32_ENABLE_REG+i);
+	D("%s++: sensors_id = %d, enabled = %d\n", __func__, sensors_id, enabled);
 
 	CWMCU_i2c_write(mcu_data, CWSTM32_ENABLE_REG+i, &data,1);
 
@@ -975,7 +977,15 @@ static void sensor_enable(int sensors_id, int enabled)
 
 void proximity_set(int enabled)
 {
-	sensor_enable(Proximity, enabled);
+	if (enabled) {
+		sensor_enable(Proximity, enabled);
+		I("[WG] proximity sensor enabled\n");
+	} else if (!proximity_flag) {
+		sensor_enable(Proximity, enabled);
+		I("[WG] proximity sensor disabled\n");
+	} else {
+		I("[WG] proximity sensor enabled by system\n");
+	}
 }
 
 void camera_volume_button_disable(void)
@@ -1402,6 +1412,9 @@ static int active_set(struct device *dev,struct device_attribute *attr,const cha
 			p_status = 1;
 		else
 			p_status = 9;
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_WAKE_GESTURES
+		proximity_flag = 0;
+#endif
 	}
 
 	if (sensors_id == Light) {
@@ -1411,6 +1424,11 @@ static int active_set(struct device *dev,struct device_attribute *attr,const cha
 
 	}
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_WAKE_GESTURES
+	if ((sensors_id == Proximity) && (enabled == 1)) {
+		proximity_flag = 1;
+	}
+#endif
 
 	if ((enabled == 1) &&
 	    (sensors_id < CW_SENSORS_ID_END) &&
