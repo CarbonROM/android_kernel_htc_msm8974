@@ -14,8 +14,6 @@
 #include <linux/backing-dev.h>
 #include "internal.h"
 
-#include <trace/events/mmcio.h>
-
 #include <linux/moduleparam.h>
 
 bool fsync_enabled = true;
@@ -79,13 +77,11 @@ static void sync_filesystems(int wait)
 
 SYSCALL_DEFINE0(sync)
 {
-	trace_sys_sync(0);
 	wakeup_flusher_threads(0, WB_REASON_SYNC);
 	sync_filesystems(0);
 	sync_filesystems(1);
 	if (unlikely(laptop_mode))
 		laptop_sync_completion();
-	trace_sys_sync_done(0);
 	return 0;
 }
 
@@ -147,12 +143,10 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 	int err;
 	if (!fsync_enabled)
 			return 0;
-			
+
 	if (!file->f_op || !file->f_op->fsync)
 		return -EINVAL;
-	trace_vfs_fsync(file);
 	err = file->f_op->fsync(file, start, end, datasync);
-	trace_vfs_fsync_done(file);
 	return err;
 }
 EXPORT_SYMBOL(vfs_fsync_range);
@@ -169,7 +163,7 @@ int vfs_fsync(struct file *file, int datasync)
 {
 	if (!fsync_enabled)
 			return 0;
-			
+
 	return vfs_fsync_range(file, 0, LLONG_MAX, datasync);
 }
 EXPORT_SYMBOL(vfs_fsync);
@@ -254,7 +248,7 @@ static int do_fsync(unsigned int fd, int datasync)
 						list_del_init(&fwork->list);
 						break;
 					}
-					
+
 					mutex_unlock(&afsync_lock);
 					fput(file);
 					return 0;
@@ -296,7 +290,7 @@ SYSCALL_DEFINE1(fsync, unsigned int, fd)
 {
 	if (!fsync_enabled)
 			return 0;
-			
+
 	return do_fsync(fd, 0);
 }
 
@@ -304,7 +298,7 @@ SYSCALL_DEFINE1(fdatasync, unsigned int, fd)
 {
 	if (!fsync_enabled)
 			return 0;
-			
+
 	return do_fsync(fd, 1);
 }
 
@@ -312,7 +306,7 @@ int generic_write_sync(struct file *file, loff_t pos, loff_t count)
 {
 	if (!fsync_enabled)
 			return 0;
-			
+
 	if (!(file->f_flags & O_DSYNC) && !IS_SYNC(file->f_mapping->host))
 		return 0;
 	return vfs_fsync_range(file, pos, pos + count - 1,
@@ -326,7 +320,7 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 	int ret;
 	struct file *file;
 	struct address_space *mapping;
-	loff_t endbyte;			
+	loff_t endbyte;
 	int fput_needed;
 	umode_t i_mode;
 
@@ -359,7 +353,7 @@ SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 	if (nbytes == 0)
 		endbyte = LLONG_MAX;
 	else
-		endbyte--;		
+		endbyte--;
 
 	ret = -EBADF;
 	file = fget_light(fd, &fput_needed);
